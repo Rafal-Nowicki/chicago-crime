@@ -1,0 +1,51 @@
+---
+title: "Chicago crime reports"
+author: "Rafal Nowicki"
+date: "15 04 2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(bigrquery)
+```
+
+Setting up the project:
+```{r}
+project <- "rafal-mannheim"
+```
+
+Setting up the connection:
+```{r}
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "bigquery-public-data",
+  dataset = "chicago_crime",
+  billing = project)
+
+con
+```
+
+Available tables:
+```{r}
+dbListTables(con)
+```
+
+How the data looks like:
+```{sql connection= con}
+SELECT *
+FROM crime
+WHERE year = 2015
+LIMIT 50
+```
+
+Data extraction:
+```{sql connection= con}
+SELECT COUNT(*)
+FROM crime
+WHERE year = 2015
+```
+
+
+
