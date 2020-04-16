@@ -9,13 +9,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(bigrquery)
+library(rgdal)
+library(sp)
 ```
-
 Setting up the project:
 ```{r}
 project <- "rafal-mannheim"
 ```
-
 Setting up the connection:
 ```{r}
 con <- dbConnect(
@@ -26,12 +26,11 @@ con <- dbConnect(
 
 con
 ```
-
 Available tables:
 ```{r}
 dbListTables(con)
 ```
-
+Data description [here](https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-present/ijzp-q8t2)
 How the data looks like:
 ```{sql connection= con}
 SELECT *
@@ -39,13 +38,81 @@ FROM crime
 WHERE year = 2015
 LIMIT 50
 ```
-
-Data extraction:
+How many reports are there?
 ```{sql connection= con}
-SELECT COUNT(*)
+SELECT COUNT(*) num_cases
 FROM crime
 WHERE year = 2015
 ```
+Select the example data:
+```{r}
+crime <- tbl(con, "crime")
 
+crime_data <- crime %>%
+              select(year, community_area, arrest) %>%
+              filter(year == 2015 & arrest == TRUE) %>%
+              group_by(community_area) %>%
+              summarise(arrest_num = n()) %>%
+              collect()
 
+crime_data_stand <- crime_data %>%
+                    mutate_at(2, scale)
+```
+Shape files for plotting maps of Chicago are available on the following website:
 
+https://data.cityofchicago.org/Facilities-Geographic-Boundaries/Boundaries-Community-Areas-current-/cauq-8yn6
+
+As we downloaded required files let's unpack it and make use of them.
+Now we can see how community areas around Chicago look like.
+```{r message=FALSE"}
+map <- readOGR(".", "chicago_shape")
+map <- spTransform(map, "+proj=longlat")
+```
+Let's merge the data with map:
+```{r}
+spatial_data <- merge(map, crime_data_stand, by.y = "community_area", by.x = "area_num_1")
+```
+Plot it:
+```{r}
+pal <- colorRampPalette(c("steelblue","white" ,"darkred"), bias = 2.5)
+
+arrest_plot <- spplot(spatial_data, zcol = "arrest_num", colorkey = TRUE, col.regions = pal(100), cuts = 99,
+                   par.settings = list(axis.line = list(col =  'transparent')),
+                   main = "Number of arrest in Chicago, 2015")
+
+arrest_plot
+```
+Now lower level data - chicago beats
+[here](https://data.cityofchicago.org/Public-Safety/Boundaries-Police-Beats-current-/aerh-rz74)
+
+Map:
+```{r message=FALSE}
+map_beat <- readOGR(".", "chicago_beats")
+map_beat <- spTransform(map_beat, "+proj=longlat")
+```
+Data:
+```{r}
+crime <- tbl(con, "crime")
+
+crime_data_beat <- crime %>%
+              select(year, beat, arrest) %>%
+              filter(year == 2015 & arrest == TRUE) %>%
+              group_by(beat) %>%
+              summarise(arrest_num = n()) %>%
+              collect()
+
+crime_data_beat_stand <- crime_data_beat %>%
+                    mutate_at(2, scale)
+```
+Let's merge the data with map:
+```{r}
+spatial_data_beat <- merge(map_beat, crime_data_beat_stand, by.y = "beat", by.x = "beat_num")
+```
+Plot it:
+```{r}
+arrest_plot_b <- spplot(spatial_data_beat, zcol = "arrest_num", colorkey = TRUE, col.regions = pal(100), cuts = 99,
+                   par.settings = list(axis.line = list(col =  'transparent')),
+                   main = "Number of arrest in Chicago, 2015")
+
+arrest_plot_b
+```
