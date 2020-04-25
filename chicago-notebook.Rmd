@@ -11,6 +11,11 @@ library(tidyverse)
 library(bigrquery)
 library(rgdal)
 library(sp)
+
+library(rayshader)
+library(sf)
+library(viridis)
+library(rgeos)
 ```
 Setting up the project:
 ```{r}
@@ -116,3 +121,32 @@ arrest_plot_b <- spplot(spatial_data_beat, zcol = "arrest_num", colorkey = TRUE,
 
 arrest_plot_b
 ```
+
+# Some fun with 3d choropleth
+```{r}
+nc1 <- st_as_sf(spatial_data)
+
+
+theme_set(theme_classic())
+
+gg_nc = ggplot(nc1) +
+  geom_sf(aes(fill = arrest_num)) +
+  scale_fill_viridis("Arrests") +
+  ggtitle("Arrests in Chicago CA, 2015") + 
+  theme(text = element_text(size=13),
+        axis.text.x = element_text(angle=90, hjust=1))
+  
+
+
+
+#par(mfrow = c(1, 1))
+
+plot_gg(gg_nc, multicore = TRUE, width = 6 ,height=2.7, fov = 70, shadow_intensity = 0.75)
+
+render_camera(fov = 50, zoom = 0.35, theta = -15, phi = 55)
+
+render_depth(focus = 0.68, focallength = 120)
+
+#render_snapshot(clear = TRUE)
+```
+
